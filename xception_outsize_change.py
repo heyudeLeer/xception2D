@@ -21,42 +21,30 @@ from __future__ import print_function
 from __future__ import absolute_import
 
 import warnings
-import numpy as np
 import keras
-
-from keras.models import Model
-
-
-from keras.engine.topology import get_source_inputs
-from keras.utils.data_utils import get_file
 
 from keras.layers import Input
 from keras import layers
 from keras.layers import Dense
 from keras.layers import Activation
-from keras.layers import Flatten
 from keras.layers import Conv2D
 from keras.layers import MaxPooling2D
-from keras.layers import ZeroPadding2D
-from keras.layers import AveragePooling2D
 from keras.layers import GlobalAveragePooling2D,SeparableConv2D,UpSampling2D
 from keras.layers import GlobalMaxPooling2D
 from keras.layers import BatchNormalization
 from keras.models import Model
 from keras import backend as K
-import tensorflow as tf
 from keras.engine.topology import get_source_inputs
-from keras.utils import layer_utils
 from keras.utils.data_utils import get_file
-from keras.applications.imagenet_utils import decode_predictions
-from keras.applications.imagenet_utils import preprocess_input
 from keras.applications.imagenet_utils import _obtain_input_shape
+
+
+
 
 #the variable will modify the output size
 out19=2
 out37=2
 out74=2
-
 
 TF_WEIGHTS_PATH = 'https://github.com/fchollet/deep-learning-models/releases/download/v0.4/xception_weights_tf_dim_ordering_tf_kernels.h5'
 TF_WEIGHTS_PATH_NO_TOP = 'https://github.com/fchollet/deep-learning-models/releases/download/v0.4/xception_weights_tf_dim_ordering_tf_kernels_notop.h5'
@@ -156,9 +144,10 @@ def Xception(include_top=True, weights=None,
         else:
             img_input = input_tensor
 
+    #Let RGB transform like an atom
     #x = img_input
-    #x = Conv2D(1, (1, 1), use_bias=False, kernel_initializer=keras.initializers.Constant(value=[1, 2, 3]), name='rgbTo1')(x)
-    #x = Conv2D(32, (3, 3), strides=(2, 2), use_bias=False, name='block1_conv1')(x)
+    #x = Conv2D(1, (1, 1), use_bias=False, kernel_initializer=keras.initializers.Constant(value=[1, 2, 3]), name='rgb2Atomic')(x)
+    #x = Conv2D(32, (3, 3), strides=(2, 2), use_bias=False, name='block_conv')(x)
 
     x = Conv2D(32, (3, 3), strides=(2, 2), use_bias=False, name='block1_conv1')(img_input)
     x = BatchNormalization(name='block1_conv1_bn')(x)

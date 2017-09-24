@@ -24,28 +24,24 @@ import cv2
 '''
 read_only global variabl
 '''
-
 num_classes = 24
 imgRows = 299
 imgCols = 299
 
-imgsNumTrain=122   #few shot
-imgsNumVal=1503
-trainTimes = 120
+imgsNumTrain = 126   #few shot
+imgsNumVal = 1503
+trainTimes = 50
 valTimes = 1
-
 
 judgeThreshold=0.05
 degreeCorrectTh=0.3
 tageCorrectTh=0.05
-
 imgPath = "/home/heyude/PycharmProjects/data/dishes1.2/"
 
 
 '''
 Auto and global variabl, Writable
 '''
-
 kernelSize = 0
 fcnUpTimes = 0
 it_size = 0
@@ -83,13 +79,27 @@ datagen = ImageDataGenerator(
 )
 
 
-def creatModel(modePar='base', weights_h5=None, train=False):
+def creatXceptionModel(mode=None, par=None, weights_h5=None, evaluate=False, train=False):
     '''
     creat model for image recognition,location and segmentation
-    :param modePar:End output size, base or out_37, base size is 10;
-    :param weights_h5:load trained weights h5 file,file name format: modePar + produce_time +evaluate_score
+
+    :param mode:None,change outsize or common
+    None:default xception mode from keras
+    change outsize:out10,out19,out37,out74;xception output will be change in order to improve pixel position accuracy
+    common:try a generic CNNs network
+
+    :param par:common mode subparameter
+    Ki:filters, Integer, the dimensionality of the output space (i.e. the number output of filters in the convolution).
+    reduce:Integer,Output size reduce factor
+    loop:Integer,Sub-network repeat times,determine the depth and entropy of the network
+
+    :param weights_h5:load pre-trained weights h5 file,File naming rules: mode + produce_time +evaluate_score
+
+    :param evaluate:boolean,Whether to evaluate this model
+
     :param train:boolean,Whether to train this model
-    :return:trained model
+
+    :return:created model
     '''
     global fcnUpTimes
     global kernelSize
@@ -101,63 +111,78 @@ def creatModel(modePar='base', weights_h5=None, train=False):
     global classNameDic
     global classNameDic_T
 
+    # build the network with ImageNet weights
+    inputShape = (imgRows, imgCols, 3)
 
-    if modePar=='base':
+    # default
+    if mode==None:
         from keras.applications.xception import Xception
+        base_model = Xception(weights='imagenet', include_top=False, input_shape=inputShape)
+        print 'you chose default mode'
+        mode='default'
         kernelSize = 10
         fcnUpTimes = 30
 
+    elif mode == 'common':
+        from xception_common import Xception
+        if par==None:
+            print "common mode par should not be None!"
+            exit(0)
+        base_model = Xception(Ki=par[0], reduce=par[1], loop=par[2], input_shape=inputShape)
+        parStr = str(par[0]) + '_' + str(par[1]) + '_' + str(par[2])
+        mode += parStr
+        print 'you chose common mode,par is ' + parStr
+        kernelSize = 8  # need adapter with reduce
+        fcnUpTimes = 37  # need adapter with reduce
+        batchSize = 8  # GPU memory limit
+    # outsize changed mode
     else:
         import xception_outsize_change
         from xception_outsize_change import Xception
-        #from xception_common import Xception
-        if modePar == 'common':
+        if mode == 'out10':# as same as default mode
             kernelSize = 10
             fcnUpTimes = 30
-            batchSize = 8  # GPU memory limit
-            print 'you chose common mode...'
-        if modePar == 'out19':
+            print 'you chose out10 mode...'
+        if mode == 'out19':
             xception_outsize_change.out19 = 1
             kernelSize = 19
             fcnUpTimes = 16
             print 'you chose out19 mode...'
-        if modePar == 'out37':
+        if mode == 'out37':
             xception_outsize_change.out19 = 1
             xception_outsize_change.out37 = 1
             kernelSize = 37
             fcnUpTimes = 8
-            batchSize = 8   #GPU memory limit
+            batchSize = 8   # GPU memory limit
             print 'you chose out37 mode...'
-        if modePar == 'out74':
+        if mode == 'out74':
             xception_outsize_change.out19 = 1
             xception_outsize_change.out37 = 1
             xception_outsize_change.out74 = 1
             kernelSize = 74
             fcnUpTimes = 4
-            batchSize = 3   #GPU memory limit
+            batchSize = 3   # GPU memory limit
             print 'you chose out74 mode...'
+
+        # base_model = Xception(include_top=False, input_shape=inputShape)
+        base_model = Xception(weights='imagenet', include_top=False, input_shape=inputShape)
 
     it_size = min(kernelSize*fcnUpTimes, imgRows, imgCols)
     print "Pixel iteration size is "+str(it_size)
     overArea = it_size * it_size
 
-    # build the network with ImageNet weights
-    inputShape = (imgRows, imgCols, 3)
-    #base_model = Xception(include_top=False, input_shape=inputShape)
-    base_model = Xception(weights='imagenet', include_top=False, input_shape=inputShape)
-    #base_model = Xception(Ki=512, reduce=4, loop=32, input_shape=inputShape)
-    print('base_model have loaded...')
 
+    # CNNs network
     x = base_model.output
     x = Dropout(0.5)(x)
     x = Conv2D(num_classes, (1, 1), name='fcn')(x)
     y = x
-    #2D to point
+    # 2D to point
     x = GlobalAveragePooling2D()(x)
     x = Activation('softmax')(x)
     trainModel = Model(inputs=base_model.input, outputs=x, name='Xception_dishes')
 
-    #   segmentation
+    # segmentation
     y = Activation('softmax')(y)
     #y = keras.layers.advanced_activations.ThresholdedReLU(theta=judgeThreshold)(y)
     y = UpSampling2D((fcnUpTimes, fcnUpTimes))(y)
@@ -165,7 +190,8 @@ def creatModel(modePar='base', weights_h5=None, train=False):
 
     if weights_h5 != None and os.path.exists(weights_h5):
         print(weights_h5 +" have loaded!")
-        trainModel.load_weights(weights_h5,by_name=True)
+        trainModel.load_weights(weights_h5, by_name=True)
+
 
     # let's visualize layer names and layer indices to see how many layers
     # we should freeze:
@@ -176,17 +202,15 @@ def creatModel(modePar='base', weights_h5=None, train=False):
     # to non-trainable (weights will not be updated)
     # for layer in trainModel.layers[0:311]: #block5 top,mix8
     #    layer.trainable = False
-    #rgbTo1_layer = trainModel.get_layer(name='rgbTo1')
+    #rgbTo1_layer = trainModel.get_layer(name='rgb2Atomic')
     #rgbTo1_layer.trainable = False
 
     opt = keras.optimizers.rmsprop(lr=0.0001, decay=1e-6)
     # compile the model with a SGD/momentum optimizer
     # and a very slow learning rate.
-    # sgd = keras.optimizers.SGD(lr=1e-4, decay=1e-6, momentum=0.9, nesterov=True)
-    sgd = keras.optimizers.SGD(lr=1e-7, decay=1e-9, momentum=0.9, nesterov=True)
-    #trainModel.compile(loss='categorical_crossentropy', optimizer=keras.optimizers.SGD(lr=1e-7, momentum=0.9, nesterov=True), metrics=['accuracy'])
-    # Let's train the model using RMSprop
-    trainModel.compile(loss='categorical_crossentropy', optimizer=opt, metrics=['accuracy'])
+    sgd = keras.optimizers.SGD(lr=1e-5, decay=1e-5, momentum=0.9, nesterov=True)#-4,-6
+    # Let's train the model using opt or sgd
+    trainModel.compile(loss='categorical_crossentropy', optimizer=sgd, metrics=['accuracy'])
     trainModel.summary()
 
     # this is a generator that will read pictures found in
@@ -199,9 +223,9 @@ def creatModel(modePar='base', weights_h5=None, train=False):
         # save_to_dir=imgPath+'trainSet', save_prefix='gen', save_format='png',
         shuffle=True,
         class_mode='categorical'
-    )  # since we use binary_crossentropy loss, we need binary labels
+    )
 
-    # get train labs and item name
+    # get train labs info and item name
     classNameDic = train_generator.class_indices
     classNameDic_T = dict((v, k) for k, v in classNameDic.items())
     print classNameDic_T
@@ -216,6 +240,10 @@ def creatModel(modePar='base', weights_h5=None, train=False):
         class_mode='categorical'
     )
 
+    if evaluate==True:
+        print 'evaluate...'
+        score = trainModel.evaluate_generator(validation_generator, steps=math.ceil(imgsNumVal / batchSize) * valTimes, workers=4)
+        print(score)
 
     if train==True:
         from keras.callbacks import EarlyStopping
@@ -224,7 +252,7 @@ def creatModel(modePar='base', weights_h5=None, train=False):
         trainModel.fit_generator(
             generator=train_generator,
             steps_per_epoch=math.ceil(num_classes * trainTimes / batchSize),
-            epochs=3,
+            epochs=10,
             callbacks=[early_stopping],
             validation_data=validation_generator,
             validation_steps=math.ceil(imgsNumVal*valTimes/batchSize),
@@ -233,9 +261,9 @@ def creatModel(modePar='base', weights_h5=None, train=False):
         print 'evaluate...'
         score = trainModel.evaluate_generator(validation_generator, steps=math.ceil(imgsNumVal / batchSize) * valTimes, workers=4)
         print(score)
+        #save trained weights
         timeInfo = time.strftime('%m-%d_%H:%M', time.localtime(time.time()))
-        print timeInfo
-        trainModel.save_weights(modePar+'_'+timeInfo+'_'+str(score[1])+'.h5')
+        trainModel.save_weights(mode+'_'+timeInfo+'_'+str(score[1])+'.h5')
 
     return trainModel, segModel
 
@@ -575,6 +603,11 @@ def segImgDir(segPath):
     plt.show()
 
 def locateImgfile(url):
+    '''
+    Mark the location of the object with the rectangle of CV2
+    :param url: images path
+    :return: print and CV2 show image
+    '''
 
     print ('predict  ' + url)
     img = loadImage(url)

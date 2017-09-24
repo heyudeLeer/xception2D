@@ -70,28 +70,51 @@ def get_session(gpu_fraction=0.8):
         return tf.Session(config=tf.ConfigProto(gpu_options=gpu_options))
 #KTF.set_session(get_session(0.8))
 
-'''
 # this is the augmentation configuration we will use for training
-datagen_source = ImageDataGenerator()
-train_generator_source = datagen_source.flow_from_directory(
+datagen = ImageDataGenerator(
+    #samplewise_center=True,
+    #samplewise_std_normalization=True,
+    #featurewise_center=True,
+    #featurewise_std_normalization=True,
+    #zca_whitening=True,
+    #zca_epsilon=1e-6,
+    #rescale=1./255,
+    rotation_range=180,
+    width_shift_range=0.2,
+    height_shift_range=0.2,
+    shear_range=0.4,
+    zoom_range=0.4,
+    channel_shift_range=3.0,
+    horizontal_flip=True,
+    vertical_flip=True,
+    #fill_mode='nearest'
+)
+
+# this is a generator that will read pictures found in
+# subfolers of 'data/train', and indefinitely generate
+# batches of augmented image data
+train_generator = datagen.flow_from_directory(
     imgPath + 'train',  # this is the target directory
     target_size=(imgRows, imgCols),  # all images will be resized to 150x150
-    batch_size=1,   #batchSize,
-    #save_to_dir=imgPath+'trainSet', save_prefix='gen', save_format='png',
+    batch_size=batchSize,
+    #save_to_dir=imgPath+'trainSet2', save_prefix='gen', save_format='png',
     shuffle=True,
     class_mode='categorical'
-    )
+    )  # since we use binary_crossentropy loss, we need binary labels
 
-val_datagen_source = ImageDataGenerator()
-val_generator_source = val_datagen_source.flow_from_directory(
-    imgPath + 'validation',  # this is the target directory
-    target_size=(imgRows, imgCols),  # all images will be resized to 150x150
-    batch_size=1,   #batchSize,
-    #save_to_dir=imgPath+'valSet', save_prefix='gen', save_format='png',
+#get train labs
+classNameDic = train_generator.class_indices
+
+# this is a similar generator, for validation data
+validation_generator = datagen.flow_from_directory(
+    imgPath + 'validation',
+    target_size=(imgRows, imgCols),
+    batch_size=batchSize,
+    #save_to_dir=imgPath+'valSet2', save_prefix='gen', save_format='png',
     shuffle=True,
     class_mode='categorical'
-    )
-
+)
+'''
 def creatTensor_SaveGenData2Disk(generator, imgNum, name):
     batches = 0
     tensorList = []
@@ -123,85 +146,11 @@ else:
     val_tensorArry = np.load(open('val_source_img_tensorLib1_1.npy'))
 '''
 
-# this is the augmentation configuration we will use for training
-train_datagen = ImageDataGenerator(
-    #samplewise_center=True,
-    #samplewise_std_normalization=True,
-    #featurewise_center=True,
-    #featurewise_std_normalization=True,
-    #zca_whitening=True,
-    #zca_epsilon=1e-6,
-    #rescale=1./255,
-    rotation_range=180,
-    width_shift_range=0.2,
-    height_shift_range=0.2,
-    shear_range=0.4,
-    zoom_range=0.4,
-    channel_shift_range=3.0,
-    horizontal_flip=True,
-    vertical_flip=True,
-    #fill_mode='nearest'
-)
-if fitFlag==1:
-    print 'start train_datagen fit'
-    train_datagen.fit(tensorArry)
-    print 'train_datagen fit finish'
-
-# this is a generator that will read pictures found in
-# subfolers of 'data/train', and indefinitely generate
-# batches of augmented image data
-train_generator = train_datagen.flow_from_directory(
-    imgPath + 'train',  # this is the target directory
-    target_size=(imgRows, imgCols),  # all images will be resized to 150x150
-    batch_size=batchSize,
-    #save_to_dir=imgPath+'trainSet2', save_prefix='gen', save_format='png',
-    shuffle=True,
-    class_mode='categorical'
-    )  # since we use binary_crossentropy loss, we need binary labels
-
-#get train labs
-classNameDic = train_generator.class_indices
-
-# this is the augmentation configuration we will use for testing:
-# only rescaling
-test_datagen = ImageDataGenerator(
-    # samplewise_center=True,
-    # samplewise_std_normalization=True,
-    # featurewise_center=True,
-    # featurewise_std_normalization=True,
-    # zca_whitening=True,
-    # zca_epsilon=1e-6,
-    # rescale=1./255,
-    rotation_range=180,
-    width_shift_range=0.2,
-    height_shift_range=0.2,
-    shear_range=0.4,
-    zoom_range=0.4,
-    channel_shift_range=3.0,
-    horizontal_flip=True,
-    vertical_flip=True,
-    # fill_mode='nearest'
-)
-
-if fitFlag==1:
-    print 'start test_datagen fit of val'
-    test_datagen.fit(val_tensorArry)
-    print 'test_datagen fit finish of val'
-
-# this is a similar generator, for validation data
-validation_generator = test_datagen.flow_from_directory(
-    imgPath + 'validation',
-    target_size=(imgRows, imgCols),
-    batch_size=batchSize,
-    #save_to_dir=imgPath+'valSet2', save_prefix='gen', save_format='png',
-    shuffle=True,
-    class_mode='categorical'
-)
 
 # build the  network with ImageNet weights
 inputShape = (imgRows, imgCols, 3)
 base_model = Xception(weights='imagenet', include_top=False, input_shape=inputShape)
-print('Xception loaded.')
+print('default Xception loaded.')
 
 # add a global spatial average pooling layer
 x = base_model.output
@@ -274,7 +223,7 @@ if trainFlag==1:
     FCmodel.fit_generator(
                     generator=train_generator,
                     steps_per_epoch=math.ceil(num_classes*trainTimes/batchSize),
-                    epochs=1,
+                    epochs=2,
                     #callbacks=[early_stopping],
                     #validation_data=validation_generator,
                     #validation_steps=math.ceil(imgsNumVal*valTimes/batchSize),
@@ -713,7 +662,7 @@ compuAcc(imgPath+'dictoryTest', top=1)
 
 testImgSets(imgPath+'test', top=3)
 testImgSets(imgPath+'0728', top=1)
-testImgSets(imgPath+'0728Test',top=1)
+testImgSets(imgPath+'0728Test', top=1)
 
 #class2DShow(imgName)
 #segImgfile(imgName)
