@@ -13,12 +13,14 @@ more than 50 pictures per category.
 '''
 
 import  to2D_train
-imgPath = "/home/heyude/PycharmProjects/data/dishes1.2/"
+imgPath = to2D_train.imgPath
+
+
 
 #to2D_train.creatXceptionModel(mode=None, weights_h5=None, train=True)
-#to2D_train.creatXceptionModel(mode=None, weights_h5='default_09-24_17:00_0.997982515131.h5', evaluate=False, train=True)
+to2D_train.creatXceptionModel(mode=None, weights_h5='default_09-24_17:00_0.997982515131.h5', evaluate=True, train=False)
 #to2D_train.creatXceptionModel(mode='out74', weights_h5='out74_09-01_20:34_0.98935462472.h5', train=True)
-to2D_train.creatXceptionModel(mode='common', par=[512, 5, 18], weights_h5='common512_5_18_09-24_20:59_0.945150501672.h5', train=True)
+#to2D_train.creatXceptionModel(mode='common', par=[512, 5, 18], weights_h5='common512_5_18_09-24_20:59_0.945150501672.h5', train=True)
 
 '''
 creat model for image recognition,location and segmentation
@@ -87,7 +89,7 @@ folder:
                  |--imgs(The same class)
                  |
 '''
-#to2D_train.CalcAccuracyImgDir(imgPath+'validation', top=1)
+to2D_train.CalcAccuracyImgDir(imgPath+'validation', top=1)
 
 
 #imgPredict2DShow(url):
