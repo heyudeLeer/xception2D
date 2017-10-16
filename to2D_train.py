@@ -33,9 +33,11 @@ imgsNumVal = 1503
 trainTimes = 50
 valTimes = 1
 
-judgeThreshold=0.05
-degreeCorrectTh=0.3
-tageCorrectTh=0.05
+judgeThreshold=0.6  #predict rate
+tageCorrectTh=0.05  #area rate
+
+degreeCorrectTh=0.4 #fullness
+
 imgPath = "/home/heyude/PycharmProjects/data/dishes1.2/"
 
 
@@ -278,9 +280,9 @@ def targetColorInit():
     targetColor = []
     colorAvg = 0xFFFFFF / num_classes
 
-    for i in range(1, num_classes):
+    for i in range(0, num_classes):
 
-        color = i * colorAvg
+        color = (i+1) * colorAvg
 
         r = (color >> 16) & 0xFF
         g = (color >> 8) & 0xFF
@@ -364,6 +366,8 @@ def predictImgSets(setsPath,top=3):
             print ("coming "+ dirName)
             for _, _, files in os.walk(setsPath+dirName):
                 for name in files:
+                    if cmp(file, "category.txt") == 0:
+                        continue
                     print ('predict  '+name)
                     pred = predictImage(setsPath+dirName+'/'+name)
                     topObject = getTopObject(pred, top)
@@ -388,6 +392,8 @@ def CalcAccuracyImgDir(setsPath,top=3,verbose=1):
             acc = 0
             for _, _, files in os.walk(setsPath+dirName):
                 for name in files:
+                    if cmp(file, "category.txt") == 0:
+                        continue
                     #print 'predict'+name
                     num += 1
                     totalNum +=1
@@ -424,8 +430,8 @@ def getRgbImgFromUpsampling(imgP):
             rgbIndex = imgP[0, i, j, :].argmax()
 
             if imgP[0][i][j][rgbIndex] > judgeThreshold:
-                rgbImg[i, j, :] = targetColor[rgbIndex]
-                mylist.append(rgbIndex)
+                rgbImg[i, j, :] = targetColor[rgbIndex]#给像素赋值，以示区别
+                mylist.append(rgbIndex) #保存class index
 
     dishes_dictory = {}
     myset = set(mylist)  # myset是另外一个列表，里面的内容是mylist里面的无重复项
@@ -550,7 +556,10 @@ def segImgDir(segPath):
         print 'files num is ' +str(n)
         plt.figure(figsize=(20, 5))
         for file in files:
-            print
+
+            if cmp(file, "category.txt") == 0:
+                continue
+
             print ('predict  '+file)
             img = loadImage(segPath + '/' + file)
             pred = segModel.predict(img)
@@ -594,6 +603,106 @@ def segImgDir(segPath):
                 ax.get_yaxis().set_visible(False)
 
     plt.show()
+
+def compList(a,b):
+    if len(a) == len(b):
+        c = list(set(a).intersection(set(b))) #交集
+        #list(set(a).union(set(b)))       #并集
+        #list(set(b).difference(set(a)))  # b中有而a中没有的
+        if len(c)==len(a):
+            return True
+    return False
+#a = ['和鱼的', '是的']
+#b = ['是的', '和鱼的']
+#print compList(a, b)
+#exit(0)
+
+def segImgDirforAcc(segPath):
+    '''
+    images in folder segmentation
+    :param segPath: images path
+    :return: print and plt show result
+    '''
+    for _, _, files in os.walk(segPath):
+        print
+        print ("coming " + segPath)
+        n = len(files)
+        print 'files num is ' +str(n)
+        categoryList=[]
+        objects = open(segPath+"/category.txt")
+        for line in objects:
+            line =line[0:-1] #去掉最后的换行符
+            categoryList.append(line)
+        print 'category is:'
+        print categoryList
+
+        errList=[]
+        for file in files:
+
+            if cmp(file, "category.txt") == 0:
+                continue
+
+            print ('predict  ' + file)
+            img = loadImage(segPath + '/' + file)
+            pred = segModel.predict(img)
+            segImg,dishes_info = getRgbImgFromUpsampling(pred)
+
+            # display source img
+            objectList=[]
+            objectNum = 0
+            for dish_k, dish_v in dishes_info.items():  # (dot, name, (xl, yl, xr, yr))
+                xl = dish_v[2][0]
+                yl = dish_v[2][1]
+                xr = dish_v[2][2]
+                yr = dish_v[2][3]
+                h = xr - xl
+                w = yr - yl
+                area = h * w
+                areaRate = dish_v[0] * 1.0 / overArea
+                fullness = dish_v[0] * 1.0 / area
+                if areaRate > tageCorrectTh and fullness > degreeCorrectTh:
+                    if h > w * 8 or w > h * 8:
+                        break
+                    objectNum += 1
+                    objectList.append(dish_v[1])
+                    #print("the %s mostly has found,AreaRate and fullness:(%f,%f)" % (dish_v[1], areaRate, fullness))
+
+            if compList(objectList,categoryList)==False:
+                errList.append(file)
+                print "seg "+file+' err,NN found:'
+                print objectList
+
+    print (segPath + " accury is " + str(n-len(errList)) + '/' + str(n))
+    return n, errList
+
+def CalcAccuracySegDir(setsPath,top=3,verbose=1):
+    '''
+    :param setsPath: images path
+    :param top: The maximum probability of top categories
+    :param verbose: verbosity mode, 0 or 1.
+    :return:recognization accuracy
+    '''
+    totalNum=0
+    totalErrList=[]
+    setsPath += '/'
+    for _, dirs, _ in os.walk(setsPath):
+        for dirName in dirs:
+            #for _, _, files in os.walk(setsPath+dirName):
+            n, errList = segImgDirforAcc(setsPath+dirName)
+            totalNum += n
+            totalErrList += errList
+            #totalErrList.extend(errList)
+
+    totalAcc = (totalNum-len(totalErrList))*1.0 / totalNum
+
+    print 'seg err files:'
+    for errfile in totalErrList:
+        print errfile
+
+    print
+    print ("total accury is " + str(float('%.4f' % totalAcc )))
+
+
 
 def locateImgfile(url):
     '''
