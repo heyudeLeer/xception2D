@@ -34,7 +34,7 @@ trainTimes = 10
 valTimes = 1
 
 judgeThreshold=0.05 #predict rate
-tageCorrectTh=0.04  #area rate
+tageCorrectTh=0.06  #area rate
 
 degreeCorrectTh=0.55 #fullness
 
@@ -179,9 +179,8 @@ def creatXceptionModel(mode=None, par=None, weights_h5=None, evaluate=False, tra
     # CNNs network
     x = base_model.output
     x = Dropout(0.5)(x)
-    x = Conv2D(num_classes, (1, 1), activation='relu', padding='same', name='fcn')(x)
+    x = Conv2D(num_classes, (3, 3), padding='same', name='fcn')(x)
     y = x
-    y2 = x
     # 2D to point
     x = GlobalAveragePooling2D()(x)
     x = Activation('softmax')(x)
@@ -257,7 +256,7 @@ def creatXceptionModel(mode=None, par=None, weights_h5=None, evaluate=False, tra
         trainModel.fit_generator(
             generator=train_generator,
             steps_per_epoch=math.ceil(imgsNumTrain * trainTimes / batchSize),
-            epochs=1,
+            epochs=2,
             #callbacks=[early_stopping],
             #validation_data=validation_generator,
             #validation_steps=math.ceil(imgsNumVal*valTimes/batchSize),
