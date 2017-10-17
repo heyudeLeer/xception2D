@@ -18,7 +18,7 @@ imgPath = to2D_train.imgPath
 
 
 #to2D_train.creatXceptionModel(mode=None, weights_h5=None, train=True)
-to2D_train.creatXceptionModel(mode=None, weights_h5='default_09-24_17:00_0.997982515131.h5', evaluate=False, train=False)
+to2D_train.creatXceptionModel(mode=None, weights_h5='default_10-17_15:31_0.994444444444.h5', evaluate=False, train=True)
 #to2D_train.creatXceptionModel(mode='out74', weights_h5='out74_09-01_20:34_0.98935462472.h5', train=True)
 #to2D_train.creatXceptionModel(mode='common', par=[512, 5, 18], weights_h5='common512_5_18_09-24_20:59_0.945150501672.h5', train=True)
 
@@ -65,7 +65,10 @@ image segmentation in folder
 #to2D_train.segImgDir(imgPath+'test/heyude1012am')
 #exit(0)
 
-#to2D_train.segImgDirforAcc(imgPath+'test/heyude1012am')
+#to2D_train.segImgDir(imgPath+'test/heyude1015pm/2/2-1')
+
+#to2D_train.segImgfile(imgPath+'temp/IMG_6932.jpg') #32
+#to2D_train.imgPredict2DShow(imgPath+'temp/IMG_6932.jpg')
 to2D_train.CalcAccuracySegDir((imgPath+'test'))
 exit(0)
 

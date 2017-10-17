@@ -56,7 +56,7 @@ batchSize = 16
 
 
 fitFlag = 0
-trainFlag = 1
+trainFlag = 0
 valFlag = 0
 
 def get_session(gpu_fraction=0.8):
@@ -185,7 +185,7 @@ if os.path.exists('XceptionweightsSize_fewShot-best.h5'):
     #model=load_model('Xception-2.h5')
     #print("...........load trained model......")
     print("...........load trained weights......")
-    FCmodel.load_weights('XceptionweightsSize_fewShot-best.h5')
+    FCmodel.load_weights('XceptionweightsSize_fewShot-best.h5',by_name=True)
     FCmodel.compile(loss='categorical_crossentropy', optimizer=keras.optimizers.SGD(lr=1e-4, momentum=0.9, nesterov=True),metrics=['accuracy'])
 
     print
@@ -223,10 +223,10 @@ if trainFlag==1:
     FCmodel.fit_generator(
                     generator=train_generator,
                     steps_per_epoch=math.ceil(imgsNumTrain*trainTimes/batchSize),
-                    epochs=2,
-                    #callbacks=[early_stopping],
-                    #validation_data=validation_generator,
-                    #validation_steps=math.ceil(imgsNumVal*valTimes/batchSize),
+                    epochs=4,
+                    callbacks=[early_stopping],
+                    validation_data=validation_generator,
+                    validation_steps=math.ceil(imgsNumVal*valTimes/batchSize),
                     workers=4)
 
     FCmodel.save_weights('XceptionweightsSize_fewShot-best.h5')
@@ -415,8 +415,8 @@ def testImgSets(setsPath,top=3):
                     topObject = getTopObject(pred, top)
                     print (topObject)
                     print
-predCorrectTh=0.08
-tageCorrectTh=0.15
+predCorrectTh=0.1
+tageCorrectTh=0.06
 degreeCorrectTh=0.3
 it_size = kernelSize*fcnUpTimes
 overArea= it_size*it_size
@@ -657,15 +657,15 @@ def segImgDir(segPath):
 
 #testImgSets('/home/heyude/PycharmProjects/data/dishes/a测试图片',top=5)
 
-compuAcc(imgPath+'validation', top=1)
-compuAcc(imgPath+'dictoryTest', top=1)
+#compuAcc(imgPath+'validation', top=1)
+#compuAcc(imgPath+'dictoryTest', top=1)
 
-testImgSets(imgPath+'test', top=3)
-testImgSets(imgPath+'0728', top=1)
-testImgSets(imgPath+'0728Test', top=1)
+#testImgSets(imgPath+'test', top=3)
+#testImgSets(imgPath+'0728', top=1)
+#testImgSets(imgPath+'0728Test', top=1)
 
-#class2DShow(imgName)
-#segImgfile(imgName)
+class2DShow(imgPath+'temp/UNADJUSTEDNONRAW_thumb_29c4.jpg')
+segImgfile(imgPath+'temp/UNADJUSTEDNONRAW_thumb_29c4.jpg')
 #segImgDir(imgPath+'seg')
 #segImgDir(imgPath+'seg0720')
 #segImgDir(imgPath+'番茄鸡蛋0720')

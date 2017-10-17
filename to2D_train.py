@@ -28,15 +28,15 @@ num_classes = 24
 imgRows = 299
 imgCols = 299
 
-imgsNumTrain = 126   #few shot
-imgsNumVal = 1503
-trainTimes = 50
+imgsNumTrain = 149   #few shot
+imgsNumVal = 1455
+trainTimes = 10
 valTimes = 1
 
-judgeThreshold=0.6  #predict rate
-tageCorrectTh=0.05  #area rate
+judgeThreshold=0.05 #predict rate
+tageCorrectTh=0.04  #area rate
 
-degreeCorrectTh=0.4 #fullness
+degreeCorrectTh=0.55 #fullness
 
 imgPath = "/home/heyude/PycharmProjects/data/dishes1.2/"
 
@@ -54,7 +54,6 @@ classNameDic_T=None
 trainModel=None
 segModel=None
 
-
 def get_session(gpu_fraction=0.8):
     '''Assume that you have 6GB of GPU memory and want to allocate ~2GB'''
     num_threads = os.environ.get('OMP_NUM_THREADS')
@@ -70,11 +69,11 @@ def get_session(gpu_fraction=0.8):
 # this is the augmentation configuration we will use for training
 datagen = ImageDataGenerator(
     rotation_range=180,
-    width_shift_range=0.2,
-    height_shift_range=0.2,
+    #width_shift_range=0.2,
+    #height_shift_range=0.2,
     shear_range=0.4,
     zoom_range=0.4,
-    channel_shift_range=3.0,
+    #channel_shift_range=3.0,
     horizontal_flip=True,
     vertical_flip=True,
     # fill_mode='nearest'
@@ -169,16 +168,20 @@ def creatXceptionModel(mode=None, par=None, weights_h5=None, evaluate=False, tra
         # base_model = Xception(include_top=False, input_shape=inputShape)
         base_model = Xception(weights='imagenet', include_top=False, input_shape=inputShape)
 
-    it_size = min(kernelSize*fcnUpTimes, imgRows, imgCols)
-    print "Pixel iteration size is "+str(it_size)
-    overArea = it_size * it_size
+    #it_size = min(kernelSize*fcnUpTimes, imgRows, imgCols)
+    #print "Pixel iteration size is "+str(it_size)
+    #overArea = it_size * it_size
 
+    it_size = kernelSize
+    print "Pixel iteration size is " + str(it_size)
+    overArea = it_size * it_size
 
     # CNNs network
     x = base_model.output
     x = Dropout(0.5)(x)
-    x = Conv2D(num_classes, (1, 1), name='fcn')(x)
+    x = Conv2D(num_classes, (1, 1), activation='relu', padding='same', name='fcn')(x)
     y = x
+    y2 = x
     # 2D to point
     x = GlobalAveragePooling2D()(x)
     x = Activation('softmax')(x)
@@ -186,8 +189,8 @@ def creatXceptionModel(mode=None, par=None, weights_h5=None, evaluate=False, tra
 
     # segmentation
     y = Activation('softmax')(y)
-    #y = keras.layers.advanced_activations.ThresholdedReLU(theta=judgeThreshold)(y)
-    y = UpSampling2D((fcnUpTimes, fcnUpTimes))(y)
+    y = keras.layers.advanced_activations.ThresholdedReLU(theta=judgeThreshold)(y)
+    #y = UpSampling2D((fcnUpTimes, fcnUpTimes))(y)
     segModel = Model(inputs=base_model.input, outputs=y, name='Xception_dishes2Fcn')
 
     if weights_h5 != None and os.path.exists(weights_h5):
@@ -212,7 +215,7 @@ def creatXceptionModel(mode=None, par=None, weights_h5=None, evaluate=False, tra
     # and a very slow learning rate.
     sgd = keras.optimizers.SGD(lr=1e-5, decay=1e-5, momentum=0.9, nesterov=True)#-4,-6
     # Let's train the model using opt or sgd
-    trainModel.compile(loss='categorical_crossentropy', optimizer=sgd, metrics=['accuracy'])
+    trainModel.compile(loss='categorical_crossentropy', optimizer=opt, metrics=['accuracy'])
     trainModel.summary()
 
     # this is a generator that will read pictures found in
@@ -254,10 +257,10 @@ def creatXceptionModel(mode=None, par=None, weights_h5=None, evaluate=False, tra
         trainModel.fit_generator(
             generator=train_generator,
             steps_per_epoch=math.ceil(imgsNumTrain * trainTimes / batchSize),
-            epochs=10,
-            callbacks=[early_stopping],
-            validation_data=validation_generator,
-            validation_steps=math.ceil(imgsNumVal*valTimes/batchSize),
+            epochs=1,
+            #callbacks=[early_stopping],
+            #validation_data=validation_generator,
+            #validation_steps=math.ceil(imgsNumVal*valTimes/batchSize),
             workers=4)
 
         print 'evaluate...'
@@ -278,7 +281,7 @@ def targetColorInit():
         exit(0)
 
     targetColor = []
-    colorAvg = 0xFFFFFF / num_classes
+    colorAvg = 0xFFFFFF / (num_classes*4)
 
     for i in range(0, num_classes):
 
@@ -429,7 +432,7 @@ def getRgbImgFromUpsampling(imgP):
         for j in range(it_size):
             rgbIndex = imgP[0, i, j, :].argmax()
 
-            if imgP[0][i][j][rgbIndex] > judgeThreshold:
+            if imgP[0][i][j][rgbIndex] >= judgeThreshold:
                 rgbImg[i, j, :] = targetColor[rgbIndex]#给像素赋值，以示区别
                 mylist.append(rgbIndex) #保存class index
 
@@ -519,8 +522,8 @@ def segImgfile(url):
         yl = dish_v[2][1]
         xr = dish_v[2][2]
         yr = dish_v[2][3]
-        h = xr - xl
-        w=  yr - yl
+        h = xr - xl + 1
+        w=  yr - yl + 1
         area = h * w
         areaRate = dish_v[0]*1.0/overArea
         fullness = dish_v[0]*1.0/area
@@ -581,8 +584,8 @@ def segImgDir(segPath):
                 yl = dish_v[2][1]
                 xr = dish_v[2][2]
                 yr = dish_v[2][3]
-                h = xr - xl
-                w = yr - yl
+                h = xr - xl + 1
+                w = yr - yl + 1
                 area = h * w
                 areaRate = dish_v[0] * 1.0 / overArea
                 fullness = dish_v[0] * 1.0 / area
@@ -623,6 +626,8 @@ def segImgDirforAcc(segPath):
     :param segPath: images path
     :return: print and plt show result
     '''
+    n=0
+    errList = []
     for _, _, files in os.walk(segPath):
         print
         print ("coming " + segPath)
@@ -636,7 +641,7 @@ def segImgDirforAcc(segPath):
         print 'category is:'
         print categoryList
 
-        errList=[]
+
         for file in files:
 
             if cmp(file, "category.txt") == 0:
@@ -655,8 +660,8 @@ def segImgDirforAcc(segPath):
                 yl = dish_v[2][1]
                 xr = dish_v[2][2]
                 yr = dish_v[2][3]
-                h = xr - xl
-                w = yr - yl
+                h = xr - xl + 1
+                w = yr - yl + 1
                 area = h * w
                 areaRate = dish_v[0] * 1.0 / overArea
                 fullness = dish_v[0] * 1.0 / area
@@ -724,8 +729,8 @@ def locateImgfile(url):
         yl = dish_v[2][1]
         xr = dish_v[2][2]
         yr = dish_v[2][3]
-        h = xr - xl
-        w = yr - yl
+        h = xr - xl + 1
+        w = yr - yl + 1
         area = h * w
         areaRate = dish_v[0] * 1.0 / overArea
         fullness = dish_v[0] * 1.0 / area
