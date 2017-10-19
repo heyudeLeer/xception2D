@@ -25,16 +25,16 @@ import cv2
 read_only global variabl
 '''
 num_classes = 24
-imgRows = 299
-imgCols = 299
+imgRows = 369
+imgCols = 369
 
 imgsNumTrain = 149   #few shot
 imgsNumVal = 1455
 trainTimes = 10
 valTimes = 1
 
-judgeThreshold=0.05 #predict rate
-tageCorrectTh=0.06  #area rate
+judgeThreshold=0.5 #predict rate
+tageCorrectTh=0.07 #area rate
 
 degreeCorrectTh=0.55 #fullness
 
@@ -73,7 +73,7 @@ datagen = ImageDataGenerator(
     #height_shift_range=0.2,
     shear_range=0.4,
     zoom_range=0.4,
-    #channel_shift_range=3.0,
+    #channel_shift_range=0.5,
     horizontal_flip=True,
     vertical_flip=True,
     # fill_mode='nearest'
@@ -153,6 +153,7 @@ def creatXceptionModel(mode=None, par=None, weights_h5=None, evaluate=False, tra
             xception_outsize_change.out19 = 1
             xception_outsize_change.out37 = 1
             kernelSize = 37
+            kernelSize = 18
             fcnUpTimes = 8
             batchSize = 8   # GPU memory limit
             print 'you chose out37 mode...'
@@ -179,7 +180,9 @@ def creatXceptionModel(mode=None, par=None, weights_h5=None, evaluate=False, tra
     # CNNs network
     x = base_model.output
     x = Dropout(0.5)(x)
-    x = Conv2D(num_classes, (3, 3), padding='same', name='fcn')(x)
+    x = Conv2D(num_classes, (1, 1), name='fcn')(x)
+    #x = Conv2D(num_classes, (3, 3), padding='same',name='fcn')(x)
+    #x = Conv2D(num_classes, (3, 3), strides=(2, 2), name='fcn')(x)
     y = x
     # 2D to point
     x = GlobalAveragePooling2D()(x)
